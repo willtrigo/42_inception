@@ -27,7 +27,7 @@
 | Shared Folders                     | **None** (intentionally disabled)          |
 
 > **Why no Shared Folders?**  
-> VirtualBox shared folders break Docker volume permissions and violate the subject rule that volumes must live in `/home/login/data`. All work is done inside the VM via SSH + VS Code Remote.
+> VirtualBox shared folders break Docker volume permissions and violate the subject rule that volumes must live in `/home/login/data`. All work is done inside the VM via SSH + Neovim.
 
 #### VirtualBox Configuration Screenshots
 ![General - Basic](screenshots/vbox_general_basic.png)
@@ -35,6 +35,6 @@
 ![System - Motherboard](screenshots/vbox_system_motherboard.png)
 ![System - Processor](screenshots/vbox_system_processor.png)
 ![System - Acceleration](screenshots/vbox_system_acceleration.png)
-![Display - Screen](screenshots/vbox_display_display.png)
+![Display - Screen](screenshots/vbox_display_screen.png)
 ![Storage](screenshots/vbox_storage.png)
 ![Network (Bridged)](screenshots/vbox_network.png)
