@@ -6,7 +6,7 @@
 #    By: dande-je <dande-je@student.42sp.org.br>    +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2025/11/23 14:13:45 by dande-je          #+#    #+#              #
-#    Updated: 2025/11/23 16:31:29 by dande-je         ###   ########.fr        #
+#    Updated: 2025/11/23 18:14:56 by dande-je         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -27,10 +27,14 @@ COLOR_BLUE    = \033[34m
 #                                PROJECT VARS                                  #
 #******************************************************************************#
 
-COMPOSE_FILE  ?= srcs/docker-compose.yml
-PROJECT_NAME  ?= inception
-USER          ?= $(shell whoami)
-DOMAIN        ?= $(shell grep DOMAIN_NAME srcs/.env | cut -d '=' -f2-)
+COMPOSE_FILE      ?= srcs/docker-compose.yml
+PROJECT_NAME      ?= inception
+USER              ?= $(shell whoami)
+DOMAIN            ?= $(shell grep DOMAIN_NAME srcs/.env | cut -d '=' -f2-)
+VOLUMES           := mariadb \
+										 wordpress
+
+VOLUMES_DIRECTORY := $(VOLUMES:%=/home/$(LOCAL_USER)/data/%)
 
 #******************************************************************************#
 #                              DOCKER COMMANDS                                 #
@@ -47,11 +51,20 @@ endif
 #******************************************************************************#
 all: up
 
-up: build
+env-check:
+	@if [ ! -f $(COMPOSE_FILE).env ]; then \
+		echo "$$ (COLOR_RED)Error: .env missing. Run: cp .env.example .env && edit it. $$(COLOR_RESET)"; \
+		exit 1; \
+	fi
+	@grep -q "DOMAIN_NAME=" $$ (COMPOSE_FILE).env || (echo " $$(COLOR_RED)Error: DOMAIN_NAME not set in .env.$(COLOR_RESET)" && exit 1)
+	@echo "$$ (COLOR_GREEN)✓ .env validated. $$(COLOR_RESET)"
+
+up: env-check build
 	$(COMPOSE) up -d --remove-orphans --no-recreate
 	echo "$(COLOR_GREEN)✓ Infrastructure up: https://$(DOMAIN)$(COLOR_RESET)"
 
 build:
+	mkdir -p $(VOLUMES_DIRECTORY)
 	$(COMPOSE) build --parallel --no-cache --pull
 
 down:
@@ -84,6 +97,6 @@ help:
 	sed -n 's/^#\( [a-zA-Z_-]\+\):.*##\(.*\)$$/\1:\t\2/p' $(MAKEFILE_LIST) | column -t -s $$'\t'
 
 .PHONY: all up down clean fclean re build logs help validate
-.DEFAULT_GOAL := all
+.DEFAULT_GOAL := help
 .SILENT:
 .NOTPARALLEL:
