@@ -6,7 +6,7 @@
 #    By: dande-je <dande-je@student.42sp.org.br>    +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2025/11/23 14:13:45 by dande-je          #+#    #+#              #
-#    Updated: 2025/11/23 18:14:56 by dande-je         ###   ########.fr        #
+#    Updated: 2025/11/23 18:39:24 by dande-je         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -27,14 +27,15 @@ COLOR_BLUE    = \033[34m
 #                                PROJECT VARS                                  #
 #******************************************************************************#
 
-COMPOSE_FILE      ?= srcs/docker-compose.yml
+COMPOSE_PATH      := srcs/
+COMPOSE_FILE      ?= $(COMPOSE_PATH)docker-compose.yml
 PROJECT_NAME      ?= inception
 USER              ?= $(shell whoami)
 DOMAIN            ?= $(shell grep DOMAIN_NAME srcs/.env | cut -d '=' -f2-)
 VOLUMES           := mariadb \
 										 wordpress
 
-VOLUMES_DIRECTORY := $(VOLUMES:%=/home/$(LOCAL_USER)/data/%)
+VOLUMES_DIRECTORY := $(VOLUMES:%=/home/$(USER)/data/%)
 
 #******************************************************************************#
 #                              DOCKER COMMANDS                                 #
@@ -52,11 +53,11 @@ endif
 all: up
 
 env-check:
-	@if [ ! -f $(COMPOSE_FILE).env ]; then \
+	@if [ ! -f $(COMPOSE_PATH).env ]; then \
 		echo "$$ (COLOR_RED)Error: .env missing. Run: cp .env.example .env && edit it. $$(COLOR_RESET)"; \
 		exit 1; \
 	fi
-	@grep -q "DOMAIN_NAME=" $$ (COMPOSE_FILE).env || (echo " $$(COLOR_RED)Error: DOMAIN_NAME not set in .env.$(COLOR_RESET)" && exit 1)
+	@grep -q "DOMAIN_NAME=" $$ (COMPOSE_PATH).env || (echo " $$(COLOR_RED)Error: DOMAIN_NAME not set in .env.$(COLOR_RESET)" && exit 1)
 	@echo "$$ (COLOR_GREEN)✓ .env validated. $$(COLOR_RESET)"
 
 up: env-check build

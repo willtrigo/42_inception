@@ -16,7 +16,7 @@ services:
   nginx:
     <<: *common
     build:
-      context: ../requirements/nginx
+      context: ..srcs/requirements/nginx
       dockerfile: Dockerfile
       args:
         - TLS_CN=${NGINX_TLS_CN}
@@ -41,7 +41,7 @@ services:
   wordpress:
     <<: *common
     build:
-      context: ../requirements/wordpress
+      context: ..srcs/requirements/wordpress
       dockerfile: Dockerfile
     volumes:
       - wordpress_data:/var/www/html
@@ -61,7 +61,7 @@ services:
   mariadb:
     <<: *common
     build:
-      context: ../requirements/mariadb
+      context: ../srcs/requirements/mariadb
       dockerfile: Dockerfile
     volumes:
       - mariadb_data:/var/lib/mysql
