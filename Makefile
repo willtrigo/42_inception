@@ -6,7 +6,7 @@
 #    By: dande-je <dande-je@student.42sp.org.br>    +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2025/11/23 14:13:45 by dande-je          #+#    #+#              #
-#    Updated: 2025/11/23 20:10:39 by dande-je         ###   ########.fr        #
+#    Updated: 2025/11/23 20:22:03 by dande-je         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -73,8 +73,15 @@ clean: down
 	docker system prune -f --filter label=project=$(PROJECT_NAME)
 	echo "$(COLOR_YELLOW)Cleaned (volumes preserved).$(COLOR_RESET)"
 
+# Full clean (all + host vols; sudo-guarded)
 fclean: clean
-	docker volume prune -f --filter name=$(PROJECT_NAME)
+	$(eval VOLS := $(shell docker volume ls -q -f "name=^$(PROJECT_NAME)_" 2>/dev/null || true))
+	@if [ -n "$(VOLS)" ]; then \
+		echo "$(COLOR_YELLOW)Removing Docker volumes: $(VOLS)$(COLOR_RESET)"; \
+		docker volume rm -f $(VOLS) || true; \
+	else \
+		echo "$(COLOR_YELLOW)No Docker volumes to remove.$(COLOR_RESET)"; \
+	fi
 	docker network prune -f --filter label=project=$(PROJECT_NAME)
 	docker system prune -af --filter label=project=$(PROJECT_NAME)
 	@if [ -d "$(VOLUMES_PATH)" ]; then \
@@ -83,7 +90,7 @@ fclean: clean
 	else \
 		echo "$(COLOR_YELLOW)No host volumes to remove.$(COLOR_RESET)"; \
 	fi
-	echo "$(COLOR_RED)Full clean complete.$(COLOR_RESET)"
+	@echo "$(COLOR_RED)Full clean complete.$(COLOR_RESET)"
 
 re: fclean build up
 
