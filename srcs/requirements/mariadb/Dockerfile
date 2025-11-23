@@ -13,8 +13,7 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends \
 
 COPY --chown=mysql:mysql tools/entrypoint.sh /usr/local/bin/
 COPY conf/my.cnf /etc/mysql/conf.d/my.cnf
-
-RUN chmod +x /usr/local/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 USER mysql
 EXPOSE 3306

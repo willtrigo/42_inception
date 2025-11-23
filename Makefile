@@ -6,7 +6,7 @@
 #    By: dande-je <dande-je@student.42sp.org.br>    +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2025/11/23 14:13:45 by dande-je          #+#    #+#              #
-#    Updated: 2025/11/23 19:01:34 by dande-je         ###   ########.fr        #
+#    Updated: 2025/11/23 19:15:01 by dande-je         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -50,11 +50,11 @@ all: up
 
 env-check:
 	@if [ ! -f $(COMPOSE_PATH).env ]; then \
-		echo "$$(COLOR_RED)Error: .env missing. Run: cp .env.example .env && edit it. $$(COLOR_RESET)"; \
+		echo "$(COLOR_RED)Error: .env missing. Run: cp .env.example .env && edit it. $(COLOR_RESET)"; \
 		exit 1; \
 	fi
-	@grep -q "DOMAIN_NAME=" $$(COMPOSE_PATH).env || (echo " $$(COLOR_RED)Error: DOMAIN_NAME not set in .env.$$(COLOR_RESET)" && exit 1)
-	@echo "$$(COLOR_GREEN)✓ .env validated. $$(COLOR_RESET)"
+	@grep -q "DOMAIN_NAME=" $(COMPOSE_PATH).env || (echo " $(COLOR_RED)Error: DOMAIN_NAME not set in .env.$(COLOR_RESET)" && exit 1)
+	@echo "$(COLOR_GREEN)✓ .env validated. $(COLOR_RESET)"
 
 up: env-check build
 	$(COMPOSE) up -d --remove-orphans --no-recreate

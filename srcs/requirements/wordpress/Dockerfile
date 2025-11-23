@@ -19,11 +19,10 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends \
 COPY --from=builder --chown=www-data:www-data /tmp/wp /var/www/html
 COPY --chown=www-data:www-data tools/entrypoint.sh /usr/local/bin/
 
-RUN chmod +x /usr/local/entrypoint.sh
-
 # PHP-FPM config
 COPY conf/php-fpm.conf /etc/php/8.2/fpm/php-fpm.conf
 # COPY conf/www.conf /etc/php/8.2/fpm/pool.d/www.conf
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 USER www-data
 EXPOSE 9000
