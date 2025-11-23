@@ -214,7 +214,7 @@ sudo chmod +x /usr/local/bin/docker-compose
 
 ```bash
 sudo dnf install -y make git vim wget curl openssl \
-  procps-ng net-tools bind-utils
+  procps-ng net-tools bind-utils pwgen
 ```
 
 ---

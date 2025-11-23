@@ -4,7 +4,6 @@ Thumbs.db
 
 # Env
 .env
-secrets/
 
 # Logs
 *.log
