@@ -1,0 +1,105 @@
+version: '3.8'
+
+x-common-vars: &common
+  env_file: .env
+  restart: unless-stopped
+  networks:
+    - inception_net
+  deploy:
+    resources:
+      limits:
+        memory: 512M
+      reservations:
+        memory: 256M
+
+services:
+  nginx:
+    <<: *common
+    build:
+      context: ../requirements/nginx
+      dockerfile: Dockerfile
+      args:
+        - TLS_CN=${NGINX_TLS_CN}
+        - TLS_DAYS=${NGINX_TLS_DAYS}
+    ports:
+      - "443:443"
+    depends_on:
+      wordpress:
+        condition: service_healthy
+    secrets:
+      - db_root_password
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f https://localhost/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nginx.rule=Host(`example.com`)"
+
+  wordpress:
+    <<: *common
+    build:
+      context: ../requirements/wordpress
+      dockerfile: Dockerfile
+    volumes:
+      - wordpress_data:/var/www/html
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    secrets:
+      - db_password
+      - wp_admin_password
+    healthcheck:
+      test: ["CMD-SHELL", "wp core is-installed --allow-root || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  mariadb:
+    <<: *common
+    build:
+      context: ../requirements/mariadb
+      dockerfile: Dockerfile
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    secrets:
+      - db_root_password
+      - db_password
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -u root --password=$$(cat /run/secrets/db_root_password) || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  wordpress_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/${USER}/data/wordpress
+  mariadb_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/${USER}/data/mariadb
+
+networks:
+  inception_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+secrets:
+  db_root_password:
+    file: ../../secrets/db_root_password.txt
+  db_password:
+    file: ../../secrets/db_password.txt
+  wp_admin_password:
+    file: ../../secrets/wp_admin_password.txt

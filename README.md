@@ -228,6 +228,13 @@ git clone https://github.com/willtrigo/42_inception.git
 cd 42_inception
 ```
 
+### Setup Environment
+
+1. `cp srcs/.env.example srcs/.env`
+2. Edit `srcs/.env` with your values (e.g., DOMAIN_NAME).
+3. Generate secrets: The command is in each file.
+4. `make up` to build/start.
+
 Follow project-specific instructions in the `Makefile` for building and deploying the infrastructure.
 
 ---
