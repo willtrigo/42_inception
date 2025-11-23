@@ -1,27 +1,37 @@
-# Stage 1: Builder (install WP, deps)
+# Stage 1: Builder (install WP core)
 FROM debian:bookworm-slim AS builder
-RUN apt-get update -qq && apt-get install -y --no-install-recommends \
-    wget ca-certificates gnupg lsb-release \
-    && mkdir -p /tmp/wp \
-    && cd /tmp/wp \
-    && wget -qO- https://wordpress.org/latest.tar.gz | tar xz --strip-components=1 \
-    && chown -R 33:33 /tmp/wp
+RUN apt-get update -qq && \
+    apt-get install -y --no-install-recommends \
+        wget ca-certificates gnupg lsb-release && \
+    mkdir -p /tmp/wp && \
+    cd /tmp/wp && \
+    wget -qO- https://wordpress.org/latest.tar.gz | tar xz --strip-components=1 && \
+    chown -R 33:33 /tmp/wp && \
+    rm -rf /var/lib/apt/lists/*
 
-# Stage 2: Runtime (PHP-FPM + WP)
+# Stage 2: Runtime (PHP-FPM + WP-CLI)
 FROM debian:bookworm-slim AS runtime
-RUN apt-get update -qq && apt-get install -y --no-install-recommends \
-    php8.2-fpm php8.2-mysql php8.2-curl php8.2-gd php8.2-mbstring php8.2-xml php8.2-zip php8.2-xmlrpc \
-    && apt-get clean && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p /var/log/php /var/www/html /run/php \
-    && chown -R www-data:www-data /var/www/html /var/log/php /run/php
+RUN apt-get update -qq && \
+    apt-get install -y --no-install-recommends \
+        php8.2-fpm \
+        php8.2-mysql \
+        php8.2-curl \
+        php8.2-gd \
+        php8.2-mbstring \
+        php8.2-xml \
+        php8.2-zip \
+        php8.2-xmlrpc \
+        wp-cli && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    mkdir -p /var/log/php /var/www/html /run/php && \
+    chown -R www-data:www-data /var/www/html /var/log/php /run/php
 
-# Copy WP from builder
+# Copy artifacts
 COPY --from=builder --chown=www-data:www-data /tmp/wp /var/www/html
 COPY --chown=www-data:www-data tools/entrypoint.sh /usr/local/bin/
-
-# PHP-FPM config
 COPY conf/php-fpm.conf /etc/php/8.2/fpm/php-fpm.conf
-# COPY conf/www.conf /etc/php/8.2/fpm/pool.d/www.conf
+
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 USER www-data

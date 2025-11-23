@@ -6,7 +6,7 @@
 #    By: dande-je <dande-je@student.42sp.org.br>    +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2025/11/23 14:13:45 by dande-je          #+#    #+#              #
-#    Updated: 2025/11/23 19:15:01 by dande-je         ###   ########.fr        #
+#    Updated: 2025/11/23 20:10:39 by dande-je         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -74,10 +74,15 @@ clean: down
 	echo "$(COLOR_YELLOW)Cleaned (volumes preserved).$(COLOR_RESET)"
 
 fclean: clean
-	docker volume prune -f --filter name=$(PROJECT_NAME)_*
+	docker volume prune -f --filter name=$(PROJECT_NAME)
 	docker network prune -f --filter label=project=$(PROJECT_NAME)
 	docker system prune -af --filter label=project=$(PROJECT_NAME)
-	rm -rf /home/$(USER)/data/{wordpress,mariadb}
+	@if [ -d "$(VOLUMES_PATH)" ]; then \
+		echo "$(COLOR_YELLOW)Removing host volumes (sudo required): $(VOLUMES_PATH)$(COLOR_RESET)"; \
+		sudo rm -rf $(VOLUMES_PATH); \
+	else \
+		echo "$(COLOR_YELLOW)No host volumes to remove.$(COLOR_RESET)"; \
+	fi
 	echo "$(COLOR_RED)Full clean complete.$(COLOR_RESET)"
 
 re: fclean build up
@@ -93,7 +98,7 @@ validate:
 help:
 	sed -n 's/^#\( [a-zA-Z_-]\+\):.*##\(.*\)$$/\1:\t\2/p' $(MAKEFILE_LIST) | column -t -s $$'\t'
 
-.PHONY: all up down clean fclean re build logs help validate
-.DEFAULT_GOAL := help
+.PHONY: all up down clean fclean re logs help validate env-check
+.DEFAULT_GOAL := all
 .SILENT:
 .NOTPARALLEL:
