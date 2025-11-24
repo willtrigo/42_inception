@@ -1,7 +1,7 @@
-#!/bin/bash
+#!/bin/ash
 set -euo pipefail
 
-# Validate env & secrets (fail-fast; no hardcoded fallbacks)
+# Guards: Env + secrets (fail-fast; your vars as MYSQL_*)
 : "${MYSQL_DATABASE:?Error: MYSQL_DATABASE unset}"
 : "${MYSQL_USER:?Error: MYSQL_USER unset}"
 test -s /run/secrets/db_root_password || { echo "Error: /run/secrets/db_root_password empty/missing" >&2; exit 1; }
@@ -10,46 +10,45 @@ test -s /run/secrets/db_password || { echo "Error: /run/secrets/db_password empt
 ROOT_PWD="$(cat /run/secrets/db_root_password)"
 DB_PWD="$(cat /run/secrets/db_password)"
 
-# Init only if fresh (idempotent: skips on upgrade/restart)
+# Init only if fresh (idempotent: skips on existing data/upgrade)
 if [ ! -d "/var/lib/mysql/mysql" ]; then
     echo "Initializing MariaDB (first run)..."
 
-    # Generate insecure temp root (no pass); data dir owned by mysql
-    mysqld --initialize-insecure --user=mysql --datadir=/var/lib/mysql
+    # Temp server (your pattern: skip-net, silent; PID trap)
+    mariadbd --user=mysql --skip-networking --socket=/var/run/mysqld/mysqld.sock > /dev/null 2>&1 &
+    PID=$!
 
-    # Temp server start (local socket only; no net exposure)
-    echo "Starting temp mysqld..."
-    mysqld --daemonize --skip-networking --socket=/var/run/mysqld/mysqld.sock --user=mysql
-
-    # Wait with timeout (prevent infinite loop; 60s max)
-    echo "Waiting for temp mysqld (timeout 60s)..."
-    timeout=60; elapsed=0
-    while ! mariadb-admin --socket=/var/run/mysqld/mysqld.sock ping; do
+    # Wait with timeout (your loop; fixed infinite hang: 60s cap)
+    echo "Waiting for temp mariadbd (timeout 60s)..."
+    TIMEOUT=60; ELAPSED=0
+    until mariadb-admin --silent --socket=/var/run/mysqld/mysqld.sock ping; do
         sleep 1
-        ((elapsed++)) || true
-        [ "$elapsed" -ge "$timeout" ] && { echo "Error: Temp mysqld startup timeout" >&2; exit 1; }
+        ELAPSED=$((ELAPSED + 1))
+        [ "$ELAPSED" -ge "$TIMEOUT" ] && { echo "Error: Temp mariadbd startup timeout" >&2; kill $PID; exit 1; }
     done
 
-    # Secure: Set auth plugin + root password (empty -> secret)
-    echo "Securing root (plugin + password)..."
-    mariadb -u root --socket=/var/run/mysqld/mysqld.sock << EOF
-USE mysql;
-ALTER USER 'root'@'localhost' IDENTIFIED VIA mysql_native_password USING PASSWORD('${ROOT_PWD}');
-FLUSH PRIVILEGES;
-EOF
+    # Secure root@'%' (your UPDATE plugin + CREATE/IDENTIFIED BY; pass from secret)
+    echo "Securing root@'%' (plugin + password)..."
+    mariadb -u root --socket=/var/run/mysqld/mysqld.sock -sse "
+    USE mysql;
+    UPDATE user SET plugin='mysql_native_password' WHERE User='root';
+    CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED BY '${ROOT_PWD}';
+    GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
+    FLUSH PRIVILEGES;"
 
-    # Create app DB/user (with grants; use new root pass)
+    # App DB/user (your EXISTS check + creation; scoped GRANT DB.*)
     echo "Creating DB '${MYSQL_DATABASE}' and user '${MYSQL_USER}'..."
-    mariadb -u root -p"${ROOT_PWD}" --socket=/var/run/mysqld/mysqld.sock << EOF
-CREATE DATABASE IF NOT EXISTS \`${MYSQL_DATABASE}\`;
-CREATE USER IF NOT EXISTS '${MYSQL_USER}'@'%' IDENTIFIED BY '${DB_PWD}';
-GRANT ALL PRIVILEGES ON \`${MYSQL_DATABASE}\`.* TO '${MYSQL_USER}'@'%';
-FLUSH PRIVILEGES;
-EOF
+    if [ $(mariadb -u root -p"${ROOT_PWD}" -sse "SELECT EXISTS(SELECT 1 FROM mysql.user WHERE user = '${MYSQL_USER}');") -eq 0 ]; then
+        mariadb -u root -p"${ROOT_PWD}" --socket=/var/run/mysqld/mysqld.sock -sse "
+        CREATE DATABASE IF NOT EXISTS \`${MYSQL_DATABASE}\`;
+        CREATE USER IF NOT EXISTS '${MYSQL_USER}'@'%' IDENTIFIED BY '${DB_PWD}';
+        GRANT ALL PRIVILEGES ON \`${MYSQL_DATABASE}\`.* TO '${MYSQL_USER}'@'%';
+        FLUSH PRIVILEGES;"
+    fi
 
-    # Graceful shutdown (cleanup socket)
-    echo "Shutting down temp mysqld..."
-    mariadb-admin --socket=/var/run/mysqld/mysqld.sock shutdown
+    # Shutdown temp (your kill; graceful rm socket)
+    echo "Shutting down temp mariadbd..."
+    kill $PID
     rm -f /var/run/mysqld/mysqld.sock
 
     echo "MariaDB init complete."
@@ -57,5 +56,5 @@ else
     echo "MariaDB data exists; skipping init (upgrade mode)."
 fi
 
-# Exec main process (mysqld as USER mysql)
-exec "$@"
+# Exec main (your pattern; datadir explicit)
+exec mariadbd --user=mysql --datadir=/var/lib/mysql
