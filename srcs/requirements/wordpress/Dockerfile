@@ -1,36 +1,52 @@
-# Stage 1: Builder (install WP core)
-FROM debian:bookworm-slim AS builder
-RUN apt-get update -qq && \
-    apt-get install -y --no-install-recommends \
-        wget ca-certificates gnupg lsb-release && \
+# Stage 1: Builder (extract WP core; minimal deps for tarball)
+FROM alpine:3.21 AS builder
+
+# System users pre-apk (idempotent; www-data UID/GID 82 for WP chown)
+RUN getent group www-data >/dev/null || addgroup -S www-data && \
+    getent passwd www-data >/dev/null || adduser -S www-data -G www-data
+
+RUN apk add --no-cache \
+        wget ca-certificates && \
     mkdir -p /tmp/wp && \
     cd /tmp/wp && \
     wget -qO- https://wordpress.org/latest.tar.gz | tar xz --strip-components=1 && \
-    chown -R 33:33 /tmp/wp && \
-    rm -rf /var/lib/apt/lists/*
+    chown -R www-data:www-data /tmp/wp
 
-# Stage 2: Runtime (PHP-FPM + WP-CLI)
-FROM debian:bookworm-slim AS runtime
-RUN apt-get update -qq && \
-    apt-get install -y --no-install-recommends \
-        php8.2-fpm \
-        php8.2-mysql \
-        php8.2-curl \
-        php8.2-gd \
-        php8.2-mbstring \
-        php8.2-xml \
-        php8.2-zip \
-        php8.2-xmlrpc \
-        wp-cli && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    mkdir -p /var/log/php /var/www/html /run/php && \
-    chown -R www-data:www-data /var/www/html /var/log/php /run/php
+# Stage 2: Runtime (PHP83-FPM + ca-certificates/curl for PHAR + WP core + WP-CLI)
+FROM alpine:3.21 AS runtime
 
-# Copy artifacts
+# System users pre-apk (idempotent)
+RUN getent group www-data >/dev/null || addgroup -S www-data && \
+    getent passwd www-data >/dev/null || adduser -S www-data -G www-data
+
+RUN apk add --no-cache \
+        ca-certificates \
+        curl \
+        php83 \
+        php83-phar \
+        php83-fpm \
+        php83-mysqli \
+        php83-curl \
+        php83-gd \
+        php83-mbstring \
+        php83-xml \
+        php83-zip \
+        php83-zlib \
+        php83-opcache && \
+    mkdir -p /var/log/php /var/www/html /run/php /var/lib/php/{session,wsdl} /usr/local/bin/ && \
+    chown -R www-data:www-data /var/www/html /var/log/php /run/php /var/lib/php /usr/local/bin/
+
+# Install WP-CLI (PHAR from pinned releases; executable, PATH-integrated; verified)
+RUN curl --retry 3 --retry-delay 5 -fsSL https://github.com/wp-cli/wp-cli/releases/download/v2.12.0/wp-cli-2.12.0.phar -o /usr/local/bin/wp && \
+    chmod +x /usr/local/bin/wp && \
+    wp --info  # Immutable smoke-test (fails build on corruption/unavailability)
+
+# Copy artifacts (chown to www-data for non-root runtime)
 COPY --from=builder --chown=www-data:www-data /tmp/wp /var/www/html
 COPY --chown=www-data:www-data tools/entrypoint.sh /usr/local/bin/
-COPY conf/php-fpm.conf /etc/php/8.2/fpm/php-fpm.conf
+
+# PHP-FPM conf (Alpine path: php83/php-fpm.d/www.conf)
+COPY conf/php-fpm.conf /etc/php83/php-fpm.d/www.conf
 
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
@@ -41,4 +57,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD ["/usr/local/bin/wp", "core", "is-installed", "--allow-root"] || exit 1
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["php-fpm8.2"]
+CMD ["php-fpm83"]
