@@ -33,8 +33,8 @@ RUN apk add --no-cache \
         php83-zip \
         php83-zlib \
         php83-opcache && \
-    mkdir -p /var/log/php /var/www/html /run/php /var/lib/php/{session,wsdl} /usr/local/bin/ && \
-    chown -R www-data:www-data /var/www/html /var/log/php /run/php /var/lib/php /usr/local/bin/
+    mkdir -p /var/log/php /var/www/html /run/php /var/lib/php/{session,wsdl} /usr/local/bin/ /etc/php83/php-fpm.d/ && \
+    chown -R www-data:www-data /var/www/html /var/log/php /run/php /var/lib/php /usr/local/bin/ /etc/php83/php-fpm.d/
 
 # Install WP-CLI (PHAR from pinned releases; executable, PATH-integrated; verified)
 RUN curl --retry 3 --retry-delay 5 -fsSL https://github.com/wp-cli/wp-cli/releases/download/v2.12.0/wp-cli-2.12.0.phar -o /usr/local/bin/wp && \
@@ -43,12 +43,12 @@ RUN curl --retry 3 --retry-delay 5 -fsSL https://github.com/wp-cli/wp-cli/releas
 
 # Copy artifacts (chown to www-data for non-root runtime)
 COPY --from=builder --chown=www-data:www-data /tmp/wp /var/www/html
-COPY --chown=www-data:www-data tools/entrypoint.sh /usr/local/bin/
+COPY tools/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh && \
+    chown www-data:www-data /usr/local/bin/entrypoint.sh
 
 # PHP-FPM conf (Alpine path: php83/php-fpm.d/www.conf)
 COPY conf/php-fpm.conf /etc/php83/php-fpm.d/www.conf
-
-RUN chmod +x /usr/local/bin/entrypoint.sh
 
 USER www-data
 EXPOSE 9000

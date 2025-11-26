@@ -6,7 +6,7 @@
 #    By: dande-je <dande-je@student.42sp.org.br>    +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2025/11/23 14:13:45 by dande-je          #+#    #+#              #
-#    Updated: 2025/11/23 20:22:03 by dande-je         ###   ########.fr        #
+#    Updated: 2025/11/26 01:22:22 by dande-je         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -14,11 +14,12 @@
 #                                   COLOR                                      #
 #******************************************************************************#
 
-COLOR_RESET   = \033[0m
-COLOR_GREEN   = \033[32m
-COLOR_YELLOW  = \033[33m
-COLOR_RED     = \033[31m
-COLOR_BLUE    = \033[34m
+RED                             := \033[0;31m
+GREEN                           := \033[0;32m
+YELLOW                          := \033[0;33m
+PURPLE                          := \033[0;35m
+CYAN                            := \033[0;36m
+RESET                           := \033[0m
 
 #******************************************************************************#
 #                                PROJECT VARS                                  #
@@ -28,9 +29,9 @@ COMPOSE_PATH      := srcs/
 COMPOSE_FILE      ?= $(COMPOSE_PATH)docker-compose.yml
 PROJECT_NAME      ?= inception
 USER              ?= $(shell whoami)
-DOMAIN            ?= $(shell grep DOMAIN_NAME srcs/.env | cut -d '=' -f2-)
+DOMAIN            ?= $(shell grep DOMAIN_NAME srcs/.env 2>/dev/null | cut -d '=' -f2-)
 VOLUMES           := mariadb \
-										 wordpress
+                     wordpress
 VOLUMES_DIRECTORY := $(VOLUMES:%=/home/$(USER)/data/%)
 
 #******************************************************************************#
@@ -44,68 +45,134 @@ ifeq ($(shell command -v docker compose >/dev/null 2>&1; echo $$?), 1)
 endif
 
 #******************************************************************************#
-#                                   TARGETS                                    #
+#                                  FUNCTION                                    #
 #******************************************************************************#
-all: up
 
-env-check:
+define env_check
 	@if [ ! -f $(COMPOSE_PATH).env ]; then \
-		echo "$(COLOR_RED)Error: .env missing. Run: cp .env.example .env && edit it. $(COLOR_RESET)"; \
+		printf "$(RED)Error: .env missing. Run: cp .env.example .env && edit it.$(RESET)\n"; \
 		exit 1; \
 	fi
-	@grep -q "DOMAIN_NAME=" $(COMPOSE_PATH).env || (echo " $(COLOR_RED)Error: DOMAIN_NAME not set in .env.$(COLOR_RESET)" && exit 1)
-	@echo "$(COLOR_GREEN)✓ .env validated. $(COLOR_RESET)"
+	@grep -q "DOMAIN_NAME=" $(COMPOSE_PATH).env || \
+		(printf "$(RED)Error: DOMAIN_NAME not set in .env.$(RESET)\n" && exit 1)
+	@printf "$(GREEN)✓ .env validated.$(RESET)\n"
+endef
 
-up: env-check build
-	$(COMPOSE) up -d --remove-orphans --no-recreate
-	echo "$(COLOR_GREEN)✓ Infrastructure up: https://$(DOMAIN)$(COLOR_RESET)"
+define build
+	@printf "$(YELLOW)Creating host volume directories...$(RESET)\n"
+	@mkdir -p $(VOLUMES_DIRECTORY)
+	@printf "$(YELLOW)Setting permissions (sudo required)...$(RESET)\n"
+	@sudo chown -R $(USER):$(USER) $(VOLUMES_DIRECTORY)
+	@sudo chmod -R 755 $(VOLUMES_DIRECTORY)
+	@printf "$(GREEN)✓ Volume directories ready$(RESET)\n"
+	@printf "$(YELLOW)Building Docker images...$(RESET)\n"
+	@$(COMPOSE) build --parallel --no-cache --pull
+	@printf "$(GREEN)✓ Build complete$(RESET)\n"
+endef
 
-build:
-	mkdir -p $(VOLUMES_DIRECTORY)
-	$(COMPOSE) build --parallel --no-cache --pull
+define up
+	@printf "$(YELLOW)Ensuring volume directories exist...$(RESET)\n"
+	@mkdir -p $(VOLUMES_DIRECTORY)
+	@printf "$(YELLOW)Starting containers...$(RESET)\n"
+	@$(COMPOSE) up -d --remove-orphans
+	@printf "$(GREEN)✓ Infrastructure up: https://$(DOMAIN)$(RESET)\n"
+endef
 
-down:
-	$(COMPOSE) down --remove-orphans --timeout 30
-	echo "$(COLOR_YELLOW)Containers down; volumes intact.$(COLOR_RESET)"
+define down
+	@printf "$(YELLOW)Stopping containers...$(RESET)\n"
+	@$(COMPOSE) down --remove-orphans --timeout 30
+	@printf "$(YELLOW)✓ Containers down; volumes intact.$(RESET)\n"
+endef
 
-clean: down
-	$(COMPOSE) down --rmi local --volumes --remove-orphans --timeout 30
-	docker system prune -f --filter label=project=$(PROJECT_NAME)
-	echo "$(COLOR_YELLOW)Cleaned (volumes preserved).$(COLOR_RESET)"
+define stop
+	@printf "$(YELLOW)Stopping containers...$(RESET)\n"
+	@$(COMPOSE) stop
+	@printf "$(YELLOW)✓ Containers stopped; volumes intact.$(RESET)\n"
+endef
 
-# Full clean (all + host vols; sudo-guarded)
-fclean: clean
-	$(eval VOLS := $(shell docker volume ls -q -f "name=^$(PROJECT_NAME)_" 2>/dev/null || true))
-	@if [ -n "$(VOLS)" ]; then \
-		echo "$(COLOR_YELLOW)Removing Docker volumes: $(VOLS)$(COLOR_RESET)"; \
-		docker volume rm -f $(VOLS) || true; \
-	else \
-		echo "$(COLOR_YELLOW)No Docker volumes to remove.$(COLOR_RESET)"; \
-	fi
-	docker network prune -f --filter label=project=$(PROJECT_NAME)
-	docker system prune -af --filter label=project=$(PROJECT_NAME)
-	@if [ -d "$(VOLUMES_PATH)" ]; then \
-		echo "$(COLOR_YELLOW)Removing host volumes (sudo required): $(VOLUMES_PATH)$(COLOR_RESET)"; \
-		sudo rm -rf $(VOLUMES_PATH); \
-	else \
-		echo "$(COLOR_YELLOW)No host volumes to remove.$(COLOR_RESET)"; \
-	fi
-	@echo "$(COLOR_RED)Full clean complete.$(COLOR_RESET)"
+define clean
+	@printf "$(YELLOW)Cleaning containers and images...$(RESET)\n"
+	@$(COMPOSE) down --rmi local --volumes --remove-orphans --timeout 30
+	@docker system prune -f --filter label=project=$(PROJECT_NAME) 2>/dev/null || true
+	@printf "$(YELLOW)✓ Cleaned (volumes preserved).$(RESET)\n"
+endef
 
-re: fclean build up
+define fclean
+	@printf "$(YELLOW)Performing full cleanup...$(RESET)\n"
+	@$(COMPOSE) down --remove-orphans --timeout 30 2>/dev/null || true
+	@printf "$(YELLOW)Removing Docker volumes...$(RESET)\n"
+	@docker volume ls -q -f "name=$(PROJECT_NAME)" 2>/dev/null | xargs -r docker volume rm -f 2>/dev/null || true
+	@printf "$(YELLOW)Pruning Docker resources...$(RESET)\n"
+	@docker network prune -f 2>/dev/null || true
+	@docker system prune -af 2>/dev/null || true
+	@printf "$(YELLOW)Removing host volume directories (sudo required)...$(RESET)\n"
+	@sudo rm -rf $(VOLUMES_DIRECTORY) 2>/dev/null || true
+	@printf "$(RED)✓ Full clean complete.$(RESET)\n"
+endef
 
-logs:
-	$(COMPOSE) logs -f --tail=100
+define logs
+	@$(COMPOSE) logs -f --tail=100
+endef
 
-validate:
-	$(COMPOSE) config --quiet
-	$(COMPOSE) ps | grep -q healthy || (echo "$(COLOR_RED)Healthcheck failed!$(COLOR_RESET)" && exit 1)
-	echo "$(COLOR_GREEN)Validation passed.$(COLOR_RESET)"
+define ps
+	@$(COMPOSE) ps
+endef
 
-help:
-	sed -n 's/^#\( [a-zA-Z_-]\+\):.*##\(.*\)$$/\1:\t\2/p' $(MAKEFILE_LIST) | column -t -s $$'\t'
+define validate
+	@$(COMPOSE) config --quiet
+	@$(COMPOSE) ps | grep -q healthy || \
+		(printf "$(RED)Healthcheck failed!$(RESET)\n" && exit 1)
+	@printf "$(GREEN)✓ Validation passed.$(RESET)\n"
+endef
 
-.PHONY: all up down clean fclean re logs help validate env-check
-.DEFAULT_GOAL := all
+define help
+	grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "$(CYAN)%-20s$(RESET) %s\n", $$1, $$2}'
+endef
+
+#******************************************************************************#
+#                                   TARGETS                                    #
+#******************************************************************************#
+
+.DEFAULT_GOAL := help
+
+all: build up ## Build and start all services
+
+env-check:
+	$(call env_check)
+
+build: env-check ## Build Docker images with validation
+	$(call build)
+
+up: ## Start containers in detached mode
+	$(call up)
+
+down: ## Stop and remove containers
+	$(call down)
+
+stop: ## Stop containers without removing
+	$(call stop)
+
+clean: down ## Remove containers and prune system
+	$(call clean)
+
+fclean: clean ## Full cleanup including volumes and data
+	$(call fclean)
+
+re: fclean all ## Rebuild everything from scratch
+
+logs: ## Display container logs (follow mode)
+	$(call logs)
+
+ps: ## List running containers
+	$(call ps)
+
+validate: ## Validate configuration and health
+	$(call validate)
+
+help: ## Display available targets with descriptions
+	$(call help)
+
+.PHONY: all build env-check up down stop clean fclean re logs ps validate help
 .SILENT:
 .NOTPARALLEL:

@@ -11,33 +11,39 @@ x-common-vars: &common
         memory: 256M
 
 services:
-  nginx:
+  mariadb:
     <<: *common
+    container_name: mariadb
     build:
-      context: requirements/nginx
+      context: requirements/mariadb
       dockerfile: Dockerfile
-      args:
-        - TLS_CN=${NGINX_TLS_CN}
-        - TLS_DAYS=${NGINX_TLS_DAYS}
-    ports:
-      - "443:443"
-    depends_on:
-      wordpress:
-        condition: service_healthy
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    environment:
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PORT=${MYSQL_PORT:-3306}
     secrets:
-      - db_root_password
+      - source: db_root_password
+        target: db_root_password
+        uid: '100'
+        gid: '101'
+        mode: 0440
+      - source: db_password
+        target: db_password
+        uid: '100'
+        gid: '101'
+        mode: 0440
     healthcheck:
-      test: ["CMD-SHELL", "curl -f https://localhost/ || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.nginx.rule=Host(`example.com`)"
+      test: ["CMD-SHELL", "mariadb-admin ping -h localhost --silent || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
 
   wordpress:
     <<: *common
+    container_name: wordpress
     build:
       context: requirements/wordpress
       dockerfile: Dockerfile
@@ -47,7 +53,7 @@ services:
       - DOMAIN_NAME=${DOMAIN_NAME}
       - WORDPRESS_ADMIN_USER=${WORDPRESS_ADMIN_USER}
       - WORDPRESS_ADMIN_EMAIL=${WORDPRESS_ADMIN_EMAIL}
-      - WORDPRESS_DB_HOST=mariadb
+      - WORDPRESS_DB_HOST=mariadb:3306
       - WORDPRESS_DB_NAME=${MYSQL_DATABASE}
       - WORDPRESS_DB_USER=${MYSQL_USER}
       - WORDPRESS_DB_PASSWORD_FILE=/run/secrets/db_password
@@ -56,8 +62,16 @@ services:
       mariadb:
         condition: service_healthy
     secrets:
-      - db_password
-      - wp_admin_password
+      - source: db_password
+        target: db_password
+        uid: '82'
+        gid: '82'
+        mode: 0440
+      - source: wp_admin_password
+        target: wp_admin_password
+        uid: '82'
+        gid: '82'
+        mode: 0440
     healthcheck:
       test: ["CMD-SHELL", "wp core is-installed --allow-root || exit 1"]
       interval: 30s
@@ -65,22 +79,28 @@ services:
       retries: 3
       start_period: 90s
 
-  mariadb:
+  nginx:
     <<: *common
+    container_name: nginx
     build:
-      context: requirements/mariadb
+      context: requirements/nginx
       dockerfile: Dockerfile
+      args:
+        - TLS_CN=${NGINX_TLS_CN}
+        - TLS_DAYS=${NGINX_TLS_DAYS}
+    ports:
+      - "443:443"
     volumes:
-      - mariadb_data:/var/lib/mysql
-    secrets:
-      - db_root_password
-      - db_password
+      - wordpress_data:/var/www/html:ro
+    depends_on:
+      wordpress:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "ROOT_PWD=$(cat /run/secrets/db_root_password); test -s /run/secrets/db_root_password && mariadb-admin ping -u root --password=$ROOT_PWD --socket=/run/mysqld/mysqld.sock --connect-timeout=5 --silent || exit 1"]
+      test: ["CMD-SHELL", "wget --no-check-certificate -q -O /dev/null https://localhost/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 90s
+      start_period: 40s
 
 volumes:
   wordpress_data:
