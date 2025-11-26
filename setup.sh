@@ -31,38 +31,26 @@ if [ ! -d "secrets" ]; then
     mkdir -p secrets
 fi
 
-# Check secret files
-SECRETS_MISSING=0
+# Generate secret files
 
-if [ ! -f "secrets/db_root_password.txt" ]; then
-    echo -e "${YELLOW}Creating secrets/db_root_password.txt...${RESET}"
-    openssl rand -base64 32 > secrets/db_root_password.txt
-    SECRETS_MISSING=1
-fi
+echo -e "${YELLOW}Creating secrets/db_root_password.txt...${RESET}"
+openssl rand -base64 32 > secrets/db_root_password.txt
 
-if [ ! -f "secrets/db_password.txt" ]; then
-    echo -e "${YELLOW}Creating secrets/db_password.txt...${RESET}"
-    openssl rand -base64 32 > secrets/db_password.txt
-    SECRETS_MISSING=1
-fi
+echo -e "${YELLOW}Creating secrets/db_password.txt...${RESET}"
+openssl rand -base64 32 > secrets/db_password.txt
 
-if [ ! -f "secrets/wp_admin_password.txt" ]; then
-    echo -e "${YELLOW}Creating secrets/wp_admin_password.txt...${RESET}"
-    openssl rand -base64 32 > secrets/wp_admin_password.txt
-    SECRETS_MISSING=1
-fi
+echo -e "${YELLOW}Creating secrets/wp_admin_password.txt...${RESET}"
+openssl rand -base64 32 > secrets/wp_admin_password.txt
 
 # Set proper permissions on secrets
 chmod 644 secrets/*.txt
 echo -e "${GREEN}✓ Secret files ready (permissions: 644)${RESET}"
 
-if [ $SECRETS_MISSING -eq 1 ]; then
-    echo -e "${CYAN}\nGenerated passwords:${RESET}"
-    echo -e "  Root password:  $(cat secrets/db_root_password.txt)"
-    echo -e "  DB password:    $(cat secrets/db_password.txt)"
-    echo -e "  Admin password: $(cat secrets/wp_admin_password.txt)"
-    echo -e "${YELLOW}\nNote: Save these passwords securely!${RESET}\n"
-fi
+echo -e "${CYAN}\nGenerated passwords:${RESET}"
+echo -e "  Root password:  $(cat secrets/db_root_password.txt)"
+echo -e "  DB password:    $(cat secrets/db_password.txt)"
+echo -e "  Admin password: $(cat secrets/wp_admin_password.txt)"
+echo -e "${YELLOW}\nNote: Save these passwords securely!${RESET}\n"
 
 # Create data directories
 echo -e "${YELLOW}Creating data directories...${RESET}"
