@@ -26,14 +26,8 @@ services:
     secrets:
       - source: db_root_password
         target: db_root_password
-        uid: '100'
-        gid: '101'
-        mode: 0440
       - source: db_password
         target: db_password
-        uid: '100'
-        gid: '101'
-        mode: 0440
     healthcheck:
       test: ["CMD-SHELL", "mariadb-admin ping -h localhost --silent || exit 1"]
       interval: 10s
@@ -64,14 +58,8 @@ services:
     secrets:
       - source: db_password
         target: db_password
-        uid: '82'
-        gid: '82'
-        mode: 0440
       - source: wp_admin_password
         target: wp_admin_password
-        uid: '82'
-        gid: '82'
-        mode: 0440
     healthcheck:
       test: ["CMD-SHELL", "wp core is-installed --allow-root || exit 1"]
       interval: 30s

@@ -28,16 +28,11 @@ RUN chown mysql:mysql /etc/my.cnf.d/mariadb-server.cnf
 COPY tools/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# Run as root to read secrets and manage permissions
-USER root
-
+# Expose port
 EXPOSE 3306
 
-STOPSIGNAL SIGTERM
-
+# Healthcheck
 HEALTHCHECK --interval=10s --timeout=5s --start-period=60s --retries=5 \
     CMD mariadb-admin ping -h localhost --silent || exit 1
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-
-CMD ["mariadbd", "--user=mysql", "--datadir=/var/lib/mysql"]

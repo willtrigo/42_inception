@@ -22,6 +22,8 @@ RUN getent group www-data >/dev/null || addgroup -S www-data && \
 RUN apk add --no-cache \
         ca-certificates \
         curl \
+        mariadb-client \
+        netcat-openbsd \
         php83 \
         php83-phar \
         php83-fpm \
@@ -47,14 +49,15 @@ COPY tools/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh && \
     chown www-data:www-data /usr/local/bin/entrypoint.sh
 
-# PHP-FPM conf (Alpine path: php83/php-fpm.d/www.conf)
-COPY conf/php-fpm.conf /etc/php83/php-fpm.d/www.conf
+# PHP-FPM configuration
+COPY conf/php-fpm.conf /etc/php83/php-fpm.conf
+COPY conf/www.conf /etc/php83/php-fpm.d/www.conf
 
 USER www-data
 EXPOSE 9000
 STOPSIGNAL SIGTERM
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD ["/usr/local/bin/wp", "core", "is-installed", "--allow-root"] || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
+    CMD wp core is-installed --path=/var/www/html --allow-root || exit 1
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["php-fpm83"]
+CMD ["php-fpm83", "--nodaemonize", "--force-stderr"]
