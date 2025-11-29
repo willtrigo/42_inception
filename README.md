@@ -101,17 +101,19 @@ VirtualBox shared folders introduce permission conflicts with Docker volumes and
 
 ### Initial System Setup
 
-During Fedora installation, ensure **Development Tools** is selected in the software selection screen.
+During Fedora installation, ensure **Development Tools** is selected and **Guest Agents** in the software selection screen.
 
 After initial boot, execute the following commands:
 
 ```bash
 # Update system packages
-sudo dnf upgrade --refresh --setopt fastestmirror=1 -y
+sudo dnf upgrade -y --refresh --setopt fastestmirror=1
 
 # Configure hostname
 sudo hostnamectl set-hostname inception --static
 
+# Configure hosts
+echo "127.0.0.1 dande-je.42.fr" | sudo tee -a /etc/hosts
 # Reboot to apply changes
 reboot
 ```
@@ -147,7 +149,7 @@ ssh-keygen -t rsa
 sudo firewall-cmd --add-port=4242/tcp --permanent
 
 # Install SELinux policy utilities
-sudo dnf install policycoreutils-python-utils
+sudo dnf install -y policycoreutils-python-utils
 
 # Configure SELinux to allow SSH on port 4242
 sudo semanage port -a -t ssh_port_t -p tcp 4242
