@@ -61,7 +61,7 @@ services:
       - source: wp_admin_password
         target: wp_admin_password
     healthcheck:
-      test: ["CMD-SHELL", "wp core is-installed --allow-root || exit 1"]
+      test: ["CMD-SHELL", "wp core is-installed --path=/var/www/html --allow-root || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -84,7 +84,7 @@ services:
       wordpress:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-check-certificate -q -O /dev/null https://localhost/ || exit 1"]
+      test: ["CMD-SHELL", "curl -f https://localhost/ --insecure || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
