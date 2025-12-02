@@ -216,7 +216,14 @@ sudo chmod +x /usr/local/bin/docker-compose
 
 ```bash
 sudo dnf install -y make git vim wget curl openssl \
-  procps-ng net-tools bind-utils pwgen
+  procps-ng net-tools bind-utils pwgen zsh xinit openbox xorg-x11-server-Xorg terminator firefox
+echo "openbox-session &" > ~/.xinitrc
+echo "exec terminator" >> ~/.xinitrc
+
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+
+reboot
+
 ```
 
 ---
