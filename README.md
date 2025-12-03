@@ -219,7 +219,17 @@ sudo dnf install -y make git vim wget curl openssl \
   procps-ng net-tools bind-utils pwgen zsh xinit openbox xorg-x11-server-Xorg terminator firefox
 echo "openbox-session &" > ~/.xinitrc
 echo "exec terminator" >> ~/.xinitrc
+```
 
+autoinit startx
+vim ~/.zprofile
+```bash
+if [[ -z $DISPLAY && $(tty) == /dev/tty1 ]]; then
+    startx
+fi
+```
+
+```bash
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 
 reboot
